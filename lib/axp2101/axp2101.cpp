@@ -1,6 +1,4 @@
-#include "AXP2101.h"
-
-#include "AXP2101.h"
+#include "Axp2101.h"
 
 bool AXP2101::begin(TwoWire &wire)
 {

@@ -1,22 +1,16 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <XPowersAXP2101.tpp>
 
-XPowersAXP2101 pmu;
+#include "axp2101.h"
+
+AXP2101 axp2101;
 
 void setup()
 {
   Serial.begin(115200);
-  Wire.begin(21, 22);
+  axp2101.begin(Wire);
 
-  if (!pmu.init(Wire))
-  {
-    Serial.println("AXP2101 not detected");
-    while (1)
-      ;
-  }
-
-  Serial.println("PMU OK");
+  axp2101.printStatus(Serial);
 }
 
 void loop() {}

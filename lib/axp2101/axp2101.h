@@ -11,14 +11,18 @@ public:
 
   // Battery
   float getBatteryVoltage();
-  //float getBatteryCurrent();
+  // float getBatteryCurrent();
   bool isBatteryConnected();
   bool isCharging();
-  //uint8_t getChargeState();
+  // uint8_t getChargeState();
 
   // Source
   float getVbusVoltage();
   bool isVbusPresent();
+
+  // Charger / ADC helpers
+  bool enableBatteryCharge(bool enable);
+  bool enableVbusMeasure(bool enable);
 
   // Enable Outputs
   bool enableDCDC1(bool enable);

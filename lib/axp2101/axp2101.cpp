@@ -6,8 +6,11 @@ bool AXP2101::begin(TwoWire &wire)
 {
   if (!pmu.init(wire))
   {
+    Serial.println("AXP2101 not detected");
     return false;
   }
+  enableBatteryCharge(true);
+  enableVbusMeasure(true);
   return true;
 }
 
@@ -46,6 +49,26 @@ float AXP2101::getVbusVoltage()
 bool AXP2101::isVbusPresent()
 {
   return pmu.isVbusIn();
+}
+
+// Charger / ADC helpers
+bool AXP2101::enableBatteryCharge(bool enable)
+{
+  if (enable)
+  {
+    pmu.enableCellbatteryCharge();
+    return true;
+  }
+  else
+  {
+    pmu.disableCellbatteryCharge();
+    return true;
+  }
+}
+
+bool AXP2101::enableVbusMeasure(bool enable)
+{
+  return enable ? pmu.enableVbusVoltageMeasure() : pmu.disableVbusVoltageMeasure();
 }
 
 // Enable Outputs

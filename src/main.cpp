@@ -12,6 +12,7 @@ void handleCommand(String cmd)
   if (cmd == "status")
   {
     ble.send("STATUS: OK");
+    axp2101.printStatus(Serial);
   }
   else if (cmd == "ping")
   {

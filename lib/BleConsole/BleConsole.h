@@ -1,26 +1,49 @@
 #pragma once
 
 #include <Arduino.h>
-#include <functional>
-#include <map>
-#include <NimBLEDevice.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 
-using BleCmdHandler = std::function<void(const String &, String &)>;
-
-class BleConsole
+class BLEConsole
 {
 public:
-    bool begin(const char *deviceName);
-    void registerCommand(const String &cmd, BleCmdHandler handler);
-    void println(const String &msg);
+    BLEConsole(const char *deviceName);
+    void begin();
+
+    // Para enviar mensajes al celular
+    void send(const String &msg);
+
+    // Callback de usuario (cuando llega un comando)
+    void onCommand(void (*callback)(String cmd));
 
 private:
-    void handleRx(const String &cmd);
-    std::map<String, BleCmdHandler> handlers;
-    NimBLECharacteristic *txChar = nullptr;
-    static BleConsole *instance;
-    class RxCallbacks : public NimBLECharacteristicCallbacks
+    const char *_deviceName;
+    BLECharacteristic *_txChar;
+    bool _deviceConnected = false;
+
+    void (*_userCallback)(String) = nullptr;
+
+    // Callbacks internos
+    class ServerCallbacks : public BLEServerCallbacks
     {
-        void onWrite(NimBLECharacteristic *c);
+    public:
+        ServerCallbacks(BLEConsole *parent);
+        void onConnect(BLEServer *pServer) override;
+        void onDisconnect(BLEServer *pServer) override;
+
+    private:
+        BLEConsole *_parent;
+    };
+
+    class RxCallbacks : public BLECharacteristicCallbacks
+    {
+    public:
+        RxCallbacks(BLEConsole *parent);
+        void onWrite(BLECharacteristic *pCharacteristic) override;
+
+    private:
+        BLEConsole *_parent;
     };
 };

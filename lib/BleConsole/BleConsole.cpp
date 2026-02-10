@@ -1,71 +1,93 @@
-#include "BleConsole.h"
+#include "BLEConsole.h"
 
-BleConsole *BleConsole::instance = nullptr;
-
+// UUIDs tipo Nordic UART (estándar de facto)
 #define SERVICE_UUID "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
 #define RX_UUID "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 #define TX_UUID "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
-bool BleConsole::begin(const char *deviceName)
+BLEConsole::BLEConsole(const char *deviceName)
+    : _deviceName(deviceName) {}
+
+void BLEConsole::begin()
 {
-    instance = this;
+    BLEDevice::init(_deviceName);
 
-    NimBLEDevice::init(deviceName);
-    NimBLEServer *server = NimBLEDevice::createServer();
-    NimBLEService *service = server->createService(SERVICE_UUID);
+    BLEServer *server = BLEDevice::createServer();
+    server->setCallbacks(new ServerCallbacks(this));
 
-    txChar = service->createCharacteristic(
+    BLEService *service = server->createService(SERVICE_UUID);
+
+    _txChar = service->createCharacteristic(
         TX_UUID,
-        NIMBLE_PROPERTY::NOTIFY);
+        BLECharacteristic::PROPERTY_NOTIFY);
+    _txChar->addDescriptor(new BLE2902());
 
-    NimBLECharacteristic *rxChar = service->createCharacteristic(
+    BLECharacteristic *rxChar = service->createCharacteristic(
         RX_UUID,
-        NIMBLE_PROPERTY::WRITE);
-
-    rxChar->setCallbacks(new RxCallbacks());
+        BLECharacteristic::PROPERTY_WRITE);
+    rxChar->setCallbacks(new RxCallbacks(this));
 
     service->start();
-    NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
-    adv->addServiceUUID(SERVICE_UUID);
-    adv->start();
 
-    return true;
+    BLEAdvertising *advertising = BLEDevice::getAdvertising();
+    advertising->addServiceUUID(SERVICE_UUID);
+    advertising->start();
+
+    Serial.println("BLEConsole lista 🚀");
 }
 
-void BleConsole::registerCommand(const String &cmd, BleCmdHandler handler)
+void BLEConsole::send(const String &msg)
 {
-    handlers[cmd] = handler;
-}
-
-void BleConsole::println(const String &msg)
-{
-    if (!txChar)
-        return;
-    txChar->setValue(msg.c_str());
-    txChar->notify();
-}
-
-void BleConsole::handleRx(const String &cmd)
-{
-    String response;
-    auto it = handlers.find(cmd);
-
-    if (it != handlers.end())
+    if (_deviceConnected && _txChar)
     {
-        it->second(cmd, response);
+        _txChar->setValue(msg.c_str());
+        _txChar->notify();
     }
-    else
-    {
-        response = "Unknown command\n";
-    }
-
-    println(response);
 }
 
-void BleConsole::RxCallbacks::onWrite(NimBLECharacteristic *c)
+void BLEConsole::onCommand(void (*callback)(String))
 {
-    if (!instance)
+    _userCallback = callback;
+}
+
+/* ===== Server Callbacks ===== */
+
+BLEConsole::ServerCallbacks::ServerCallbacks(BLEConsole *parent)
+    : _parent(parent) {}
+
+void BLEConsole::ServerCallbacks::onConnect(BLEServer *pServer)
+{
+    _parent->_deviceConnected = true;
+    Serial.println("📱 Celular CONECTADO");
+}
+
+void BLEConsole::ServerCallbacks::onDisconnect(BLEServer *pServer)
+{
+    _parent->_deviceConnected = false;
+    Serial.println("📱 Celular DESCONECTADO");
+    pServer->startAdvertising();
+}
+
+/* ===== RX Callbacks ===== */
+
+BLEConsole::RxCallbacks::RxCallbacks(BLEConsole *parent)
+    : _parent(parent) {}
+
+void BLEConsole::RxCallbacks::onWrite(BLECharacteristic *pCharacteristic)
+{
+    std::string value = pCharacteristic->getValue();
+    if (!value.length())
         return;
-    std::string v = c->getValue();
-    instance->handleRx(String(v.c_str()));
+
+    String cmd;
+    for (char c : value)
+        cmd += c;
+
+    Serial.print("📥 CMD: ");
+    Serial.println(cmd);
+
+    if (_parent->_userCallback)
+    {
+        _parent->_userCallback(cmd);
+    }
 }
